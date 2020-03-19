@@ -70,10 +70,7 @@ namespace AdminCoreWeb.HostedService
                 await _chatHub.Clients.All.SendAsync("ReceiveMessage", "1", "删除集合完成.耗时:" + sp.ElapsedMilliseconds,
                     cancellationToken: stoppingToken);
             }
-            else
-            {
-                await Task.Delay(5000, stoppingToken);
-            }
+            await Task.Delay(5000, stoppingToken);
         }
     }
 }
