@@ -1,10 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Microsoft.Extensions.Hosting;
+using System;
 using System.Diagnostics;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Hosting;
+using AdminCoreWeb.Hubs;
+using Microsoft.AspNetCore.SignalR;
 
 namespace AdminCoreWeb.HostedService
 {
@@ -21,28 +21,48 @@ namespace AdminCoreWeb.HostedService
         //{
         //    Console.WriteLine("DoWork");
         //}
-
+        private readonly IHubContext<ChatHub> _chatHub;
+        public RedisNumCallBackService(IHubContext<ChatHub> chatHub)
+        {
+            _chatHub = chatHub;
+        }
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                Console.WriteLine($"{DateTime.Now:mm:ss} working...");
-                await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
-                Stopwatch sp = new Stopwatch();
-                sp.Start();
-                var dc = await RedisHelper.HGetAllAsync("lzclickcache");
-                sp.Stop();
-                Console.WriteLine(sp.ElapsedMilliseconds);
+                await Task.Delay(1000, stoppingToken).ContinueWith(async tsk =>
+                {
+                    await _chatHub.Clients.All.SendAsync("ReceiveMessage", "1", "开始定时任务", cancellationToken: stoppingToken);
+                  
+                    if (RedisHelper.Exists("lzclickcache"))
+                    {
+                        Stopwatch sp = new Stopwatch();
+                        sp.Start();
+                        await _chatHub.Clients.All.SendAsync("ReceiveMessage", "1", "获取hash集合开始", cancellationToken: stoppingToken);
+                        var dc = await RedisHelper.HGetAllAsync("lzclickcache");
+                        await _chatHub.Clients.All.SendAsync("ReceiveMessage", "1", "获取hash集合结束", cancellationToken: stoppingToken);
+                        await _chatHub.Clients.All.SendAsync("ReceiveMessage", "1", "开始删除集合", cancellationToken: stoppingToken);
+                        var pipe = RedisHelper.StartPipe();
+                        foreach (var kv in dc)
+                        {
+                            pipe.HDel("lzclickcache", kv.Key);
+                        }
+                        pipe.EndPipe();
+                        sp.Stop();
+                        await _chatHub.Clients.All.SendAsync("ReceiveMessage", "1", "删除集合完成.耗时:"+ sp.ElapsedMilliseconds, cancellationToken: stoppingToken);
+
+                    }
+                    
+                }, stoppingToken);
             }
         }
         public override async Task StopAsync(CancellationToken cancellationToken)
         {
             await base.StopAsync(cancellationToken);
-            //for (int i = 5; i > 0; i--)
-            //{
-            //    Console.WriteLine(i + "s 后关闭");
-            //    await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
-            //}
+            for (int i = 5; i > 0; i--)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+            }
         }
     }
 }

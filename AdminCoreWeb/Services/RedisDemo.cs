@@ -13,7 +13,7 @@ namespace AdminCoreWeb.Services
             var pipe = RedisHelper.StartPipe();
             for (int i = 0; i < 400000; i++)
             {
-                pipe.HMSet("lzclickcache",  Guid.NewGuid(),  Tools.GetTimeStamp()+"#" + i.ToString());
+                pipe.HMSet("lzclickcache",  Guid.NewGuid(), i.ToString());
             }
             pipe.EndPipe();
         }

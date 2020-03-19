@@ -6,3 +6,35 @@
     <h1 class="display-4">Welcome</h1>
     <p>Learn about <a href="https://docs.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
 </div>
+@section Scripts{
+    <script src="~/lib/signalr/dist/browser/signalr.js"></script>
+    <script>
+        // signalR 接受传感器数据
+        var connection = new signalR.HubConnectionBuilder().withUrl("/chatHub").build();
+
+        connection.on("ReceiveMessage", function (type, msg) {
+            console.info(msg);
+        });
+
+        connection.start().then(function () { }).catch(function (err) {
+            return console.error(err.toString());
+        });
+
+        connection.onclose(async () => {
+            $("#csbdata").empty();
+            $("#bzdata").empty();
+            console.info('监听到链接关闭');
+            await start();
+        });
+
+        async function start() {
+            try {
+                await connection.start();
+                console.log("connected");
+            } catch (err) {
+                console.log(err);
+                setTimeout(() => start(), 5000); // 断线重连
+            }
+        };
+    </script>
+}
