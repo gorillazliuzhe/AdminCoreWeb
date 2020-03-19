@@ -32,54 +32,47 @@ namespace AdminCoreWeb.HostedService
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                await Task.Delay(2000, stoppingToken).ContinueWith(async tsk =>
-                {
-                    await _chatHub.Clients.All.SendAsync("ReceiveMessage", "1", "开始定时任务", cancellationToken: stoppingToken);
-
-                    if (RedisHelper.Exists("xxxooo"))
-                    {
-                        Stopwatch sp = new Stopwatch();
-                        sp.Start();
-                        #region list
-                        var listlength = await RedisHelper.LLenAsync("xxxooo");
-                        var strlist = await RedisHelper.LRangeAsync<int>("xxxooo", 0, listlength);
-                        var pipe = RedisHelper.StartPipe();
-                        for (int i = 0; i < strlist.Length; i++)
-                        {
-                            pipe.LPop<int>("xxxooo");
-                        }
-                        pipe.EndPipe();
-
-                        #endregion
-
-
-                        #region hash
-                        //var dc = await RedisHelper.HGetAllAsync("lzclickcache");
-                        ////var pipe = RedisHelper.StartPipe();
-                        //foreach (var (key, value) in dc)
-                        //{
-                        //    list.Add(value);
-                        //    //pipe.HDel("lzclickcache", key);
-                        //}
-                        #endregion
-
-                        //pipe.EndPipe();
-                        //Dictionary<string, int> fc = list.GroupBy(s => s).ToDictionary(item => item.Key, item => item.Count());
-                        Dictionary<int, int> fc = strlist.ToList().GroupBy(s => s).ToDictionary(item => item.Key, item => item.Count());
-
-                        sp.Stop();
-                        await _chatHub.Clients.All.SendAsync("ReceiveMessage", "1", "删除集合完成.耗时:" + sp.ElapsedMilliseconds, cancellationToken: stoppingToken);
-                    }
-
-                }, stoppingToken);
+                await DataTime(stoppingToken);
             }
         }
+
+
         public override async Task StopAsync(CancellationToken cancellationToken)
         {
             await base.StopAsync(cancellationToken);
-            for (int i = 5; i > 0; i--)
+            await DataTime(cancellationToken);
+        }
+        private async Task DataTime(CancellationToken stoppingToken)
+        {
+            await _chatHub.Clients.All.SendAsync("ReceiveMessage", "1", "开始定时任务", cancellationToken: stoppingToken);
+
+            if (RedisHelper.Exists("xxxooo"))
             {
-                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+                Stopwatch sp = new Stopwatch();
+                sp.Start();
+
+                #region list
+
+                var listlength = await RedisHelper.LLenAsync("xxxooo");
+                var strlist = await RedisHelper.LRangeAsync<int>("xxxooo", 0, listlength);
+                var pipe = RedisHelper.StartPipe();
+                for (int i = 0; i < strlist.Length; i++)
+                {
+                    pipe.LPop<int>("xxxooo");
+                }
+
+                pipe.EndPipe();
+
+                #endregion
+
+                Dictionary<int, int> fc = strlist.ToList().GroupBy(s => s).ToDictionary(item => item.Key, item => item.Count());
+                sp.Stop();
+                await _chatHub.Clients.All.SendAsync("ReceiveMessage", "1", "删除集合完成.耗时:" + sp.ElapsedMilliseconds,
+                    cancellationToken: stoppingToken);
+            }
+            else
+            {
+                await Task.Delay(5000, stoppingToken);
             }
         }
     }
