@@ -1,10 +1,12 @@
 ﻿using Microsoft.Extensions.Hosting;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using AdminCoreWeb.Hubs;
 using Microsoft.AspNetCore.SignalR;
+using System.Linq;
 
 namespace AdminCoreWeb.HostedService
 {
@@ -30,29 +32,45 @@ namespace AdminCoreWeb.HostedService
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                await Task.Delay(1000, stoppingToken).ContinueWith(async tsk =>
+                await Task.Delay(2000, stoppingToken).ContinueWith(async tsk =>
                 {
                     await _chatHub.Clients.All.SendAsync("ReceiveMessage", "1", "开始定时任务", cancellationToken: stoppingToken);
-                  
-                    if (RedisHelper.Exists("lzclickcache"))
+
+                    if (RedisHelper.Exists("xxxooo"))
                     {
                         Stopwatch sp = new Stopwatch();
                         sp.Start();
-                        await _chatHub.Clients.All.SendAsync("ReceiveMessage", "1", "获取hash集合开始", cancellationToken: stoppingToken);
-                        var dc = await RedisHelper.HGetAllAsync("lzclickcache");
-                        await _chatHub.Clients.All.SendAsync("ReceiveMessage", "1", "获取hash集合结束", cancellationToken: stoppingToken);
-                        await _chatHub.Clients.All.SendAsync("ReceiveMessage", "1", "开始删除集合", cancellationToken: stoppingToken);
+                        #region list
+                        var listlength = await RedisHelper.LLenAsync("xxxooo");
+                        var strlist = await RedisHelper.LRangeAsync<int>("xxxooo", 0, listlength);
                         var pipe = RedisHelper.StartPipe();
-                        foreach (var kv in dc)
+                        for (int i = 0; i < strlist.Length; i++)
                         {
-                            pipe.HDel("lzclickcache", kv.Key);
+                            pipe.LPop<int>("xxxooo");
                         }
                         pipe.EndPipe();
-                        sp.Stop();
-                        await _chatHub.Clients.All.SendAsync("ReceiveMessage", "1", "删除集合完成.耗时:"+ sp.ElapsedMilliseconds, cancellationToken: stoppingToken);
 
+                        #endregion
+
+
+                        #region hash
+                        //var dc = await RedisHelper.HGetAllAsync("lzclickcache");
+                        ////var pipe = RedisHelper.StartPipe();
+                        //foreach (var (key, value) in dc)
+                        //{
+                        //    list.Add(value);
+                        //    //pipe.HDel("lzclickcache", key);
+                        //}
+                        #endregion
+
+                        //pipe.EndPipe();
+                        //Dictionary<string, int> fc = list.GroupBy(s => s).ToDictionary(item => item.Key, item => item.Count());
+                        Dictionary<int, int> fc = strlist.ToList().GroupBy(s => s).ToDictionary(item => item.Key, item => item.Count());
+
+                        sp.Stop();
+                        await _chatHub.Clients.All.SendAsync("ReceiveMessage", "1", "删除集合完成.耗时:" + sp.ElapsedMilliseconds, cancellationToken: stoppingToken);
                     }
-                    
+
                 }, stoppingToken);
             }
         }
